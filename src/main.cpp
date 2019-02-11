@@ -119,6 +119,12 @@ int main() {
               //check s values greater than mine and s gap
               if((check_car_s > car_s) && (check_car_s-car_s) < 30){
                 too_close = true;
+
+                if(lane == 0) {
+                  lane = 1;
+                } else {
+                  lane = 0;
+                }
               }
             }
           }
