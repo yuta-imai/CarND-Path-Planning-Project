@@ -14,6 +14,11 @@ using nlohmann::json;
 using std::string;
 using std::vector;
 
+const double MAX_SPEED = 49.5;
+const double MAX_ACC = .224;
+const double SAFETY_DISTANCE = 50;
+const double GUARD_DISTANCE = 30;
+
 int main() {
   uWS::Hub h;
 
@@ -102,9 +107,19 @@ int main() {
           } 
 
           // Prediction : Analysing other cars positions.
-          bool car_ahead = false;
-          bool car_left = false;
-          bool car_right = false;
+          bool car_ahead_in_guard_distance = false;
+          bool car_ahead_in_safety_distance = false;
+          bool car_left_in_guard_distance = false;
+          bool car_left_in_safety_distance = false;
+          bool car_right_in_guard_distance = false;
+          bool car_right_in_safety_distance = false;
+          double distance_to_current_lane_closest_ahead = 9999;
+          double distance_to_left_lane_closest_ahead = 9999;
+          double distance_to_right_lane_closest_ahead = 9999;
+          double speed_current_lane = -1;
+          double speed_left_lane = -1;
+          double speed_right_lane = -1;
+
           for ( int i = 0; i < sensor_fusion.size(); i++ ) {
               float d = sensor_fusion[i][6];
               int car_lane = -1;
@@ -127,35 +142,98 @@ int main() {
               // Estimate car s position after executing previous trajectory.
               check_car_s += ((double)prev_size*0.02*check_speed);
 
+              double distance = check_car_s - car_s;
+
               if ( car_lane == lane ) {
                 // Car in our lane.
-                car_ahead |= check_car_s > car_s && check_car_s - car_s < 30;
+                
+                if(check_car_s > car_s) {
+                  if(distance < GUARD_DISTANCE) {
+                    car_ahead_in_guard_distance = true;
+                  } else if ( distance < SAFETY_DISTANCE) {
+                    car_ahead_in_safety_distance = true;
+                    if(distance < distance_to_current_lane_closest_ahead) {
+                      distance_to_current_lane_closest_ahead = distance;
+                      speed_current_lane = check_speed/1.6*3600/1000;
+                    }
+                  }
+                }
+
               } else if ( car_lane - lane == -1 ) {
                 // Car left
-                car_left |= car_s - 30 < check_car_s && car_s + 30 > check_car_s;
+                if(car_s - GUARD_DISTANCE < check_car_s && car_s + GUARD_DISTANCE > check_car_s) {
+                  car_left_in_guard_distance = true;
+                } else if(check_car_s > car_s && distance < SAFETY_DISTANCE) {
+                  car_left_in_safety_distance = true;
+                  if(distance < distance_to_left_lane_closest_ahead) {
+                    distance_to_left_lane_closest_ahead = distance;
+                    speed_left_lane = check_speed/1.6*3600/1000;
+                  }
+                }
               } else if ( car_lane - lane == 1 ) {
                 // Car right
-                car_right |= car_s - 30 < check_car_s && car_s + 30 > check_car_s;
+                if(car_s - GUARD_DISTANCE < check_car_s && car_s + GUARD_DISTANCE > check_car_s){
+                  car_right_in_guard_distance = true;
+                } else if(check_car_s > car_s && distance < SAFETY_DISTANCE) {
+                  car_right_in_safety_distance = true;
+                  if(distance < distance_to_right_lane_closest_ahead) {
+                    distance_to_right_lane_closest_ahead = distance;
+                    speed_right_lane = check_speed/1.6*3600/1000;
+                  }
+                }
               }
           }
 
+          //Cost
+          double cost_keep_lane;
+          if(car_ahead_in_guard_distance) {
+            cost_keep_lane = 0.9;
+          } else if (car_ahead_in_safety_distance){
+            cost_keep_lane = 1 - (MAX_SPEED - speed_current_lane)/MAX_SPEED;
+          } else {
+            cost_keep_lane = 0;
+          }
+
+          double cost_change_left;
+          if(car_left_in_guard_distance) {
+            cost_change_left = 1;
+          } else if(car_left_in_safety_distance) {
+            cost_change_left = 1 - (MAX_SPEED - speed_left_lane)/MAX_SPEED;
+          } else {
+            cost_change_left = 0.1;
+          }
+
+          double cost_change_right;
+          if(car_right_in_guard_distance) {
+            cost_change_right = 1;
+          } else if(car_right_in_safety_distance) {
+            cost_change_right = 1 - (MAX_SPEED - speed_right_lane)/MAX_SPEED;
+          } else {
+            cost_change_right = 0.2;
+          }
+
+          std::cout << "Cost:KL " << cost_keep_lane << "Cost:CL " << cost_change_right << "Cost:CR " << cost_change_right << std::endl;
+
           // Behavior : Let's see what to do.
-          double speed_diff = 0;
-          const double MAX_SPEED = 49.5;
-          const double MAX_ACC = .224;
-          if ( car_ahead ) { // Car ahead
-            if ( !car_left && lane > 0 ) {
+          if ( car_ahead_in_guard_distance ) { // Car ahead
+            if ( !car_left_in_guard_distance && lane > 0 ) {
               // if there is no car left and there is a left lane.
               lane--; // Change lane left.
-            } else if ( !car_right && lane != 2 ){
+            } else if ( !car_right_in_guard_distance && lane != 2 ){
               // if there is no car right and there is a right lane.
               lane++; // Change lane right.
             } else {
               ref_vel -= MAX_ACC;
             }
+          } else if ( car_ahead_in_safety_distance ) {
+            if(ref_vel < speed_current_lane) {
+              ref_vel += MAX_ACC;
+            } else {
+              ref_vel -= MAX_ACC;
+            }
           } else {
             if ( lane != 1 ) { // if we are not on the center lane.
-              if ( ( lane == 0 && !car_right ) || ( lane == 2 && !car_left ) ) {
+              if ( ( lane == 0 && !car_right_in_guard_distance ) || ( lane == 2 && !car_left_in_guard_distance ) ) {
                 lane = 1; // Back to center.
               }
             }
