@@ -187,61 +187,83 @@ int main() {
           //Cost
           double cost_keep_lane;
           if(car_ahead_in_guard_distance) {
+            //We set this cost to 0.9 for the case of no choise.(say, default behaviour.)
             cost_keep_lane = 0.9;
           } else if (car_ahead_in_safety_distance){
+            //If car ahead of us in current lane is in safety distance, we increase cost because we have to run slower.
             cost_keep_lane = 1 - (MAX_SPEED - speed_current_lane)/MAX_SPEED;
           } else {
-            cost_keep_lane = 0;
+            if(lane == 1) {
+              //If we are running on center lane and no car ahead of us, that's great!
+              cost_keep_lane = 0;
+            } else {
+              //If no cars are ahead of us but running other than center lane, we might want to go back to center lane.
+              cost_keep_lane = 0.1;
+            }
           }
 
           double cost_change_left;
           if(car_left_in_guard_distance) {
+            //If car ahead of us in left lane is in guard distance, we set cost to 1 to avoid collision.
+            cost_change_left = 1;
+          } else if(lane == 0) {
+            //If we are running on the lane left end, we set cost to 1 to avoid course out.
             cost_change_left = 1;
           } else if(car_left_in_safety_distance) {
+            //If car ahead of us in left lane is in safety distance, we increase cost because we have to run slower.
             cost_change_left = 1 - (MAX_SPEED - speed_left_lane)/MAX_SPEED;
           } else {
-            cost_change_left = 0.1;
+            if(lane == 2) {
+              //Return to center lane.
+              cost_change_left = 0;
+            } else {
+              //We choose change left rather than right, if conditions are totally even.
+              cost_change_left = 0.2;
+            }
           }
 
           double cost_change_right;
           if(car_right_in_guard_distance) {
+            //If car ahead of us in right lane is in guard distance, we set cost to 1 to avoid collision.
+            cost_change_right = 1;
+          } else if(lane == 2) {
+            //If we are running on the lane right end, we set cost to 1 to avoid course out.
             cost_change_right = 1;
           } else if(car_right_in_safety_distance) {
+            //If car ahead of us in right lane is in safety distance, we increase cost because we have to run slower.
             cost_change_right = 1 - (MAX_SPEED - speed_right_lane)/MAX_SPEED;
           } else {
-            cost_change_right = 0.2;
+            if(lane == 0) {
+              //Return to center lane.
+              cost_change_right = 0;
+            } else {
+              //We choose change left rather than right, if conditions are totally even.
+              cost_change_right = 0.3;
+            }
           }
 
-          std::cout << "Cost:KL " << cost_keep_lane << "Cost:CL " << cost_change_right << "Cost:CR " << cost_change_right << std::endl;
+          std::cout << "Costs - KL:" << cost_keep_lane << " CL:" << cost_change_left << " CR:" << cost_change_right << std::endl;
 
           // Behavior : Let's see what to do.
-          if ( car_ahead_in_guard_distance ) { // Car ahead
-            if ( !car_left_in_guard_distance && lane > 0 ) {
-              // if there is no car left and there is a left lane.
-              lane--; // Change lane left.
-            } else if ( !car_right_in_guard_distance && lane != 2 ){
-              // if there is no car right and there is a right lane.
-              lane++; // Change lane right.
-            } else {
+          if( cost_keep_lane < cost_change_left && cost_keep_lane < cost_change_right) {
+            if ( car_ahead_in_guard_distance ) {
               ref_vel -= MAX_ACC;
-            }
-          } else if ( car_ahead_in_safety_distance ) {
-            if(ref_vel < speed_current_lane) {
-              ref_vel += MAX_ACC;
+            } else if ( car_ahead_in_safety_distance ) {
+              if(ref_vel < speed_current_lane) {
+                ref_vel += MAX_ACC;
+              } else {
+                ref_vel -= MAX_ACC;
+              }
             } else {
-              ref_vel -= MAX_ACC;
-            }
-          } else {
-            if ( lane != 1 ) { // if we are not on the center lane.
-              if ( ( lane == 0 && !car_right_in_guard_distance ) || ( lane == 2 && !car_left_in_guard_distance ) ) {
-                lane = 1; // Back to center.
+              if(ref_vel < MAX_SPEED ) {
+                ref_vel += MAX_ACC;
               }
             }
-            if ( ref_vel < MAX_SPEED ) {
-              ref_vel += MAX_ACC;
-            }
+          } else if (cost_change_left < cost_keep_lane && cost_change_left < cost_change_right) {
+            lane--;
+          } else if (cost_change_right < cost_keep_lane && cost_change_right < cost_change_left) {
+            lane++;
           }
-
 
           // Create a list of widely scoped (x,y) waypoints, evenly spaced at 30m
           // Later we will interoplate these waypoints with a spline and fill it in with more points.
