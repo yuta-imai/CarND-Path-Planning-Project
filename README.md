@@ -1,6 +1,24 @@
 # CarND-Path-Planning-Project
 Self-Driving Car Engineer Nanodegree Program
-   
+
+![screenshot](./writeup_image.png)
+
+---
+
+### Work summary
+
+I started my work based on the video [Path Planning Walkthrough](https://www.youtube.com/watch?time_continue=3214&v=7sI3VHFPP0w) and chose to get everything done in `main.cpp`. 
+
+*L123-L190* From sensor_fusion records, I built conditions for cost calculation. I focused on 'If the car is in certain distance ahead', 'If we have enough space in left/right lane' and 'What is the speed of each lane'.
+
+*L192-L250* From the conditions built as described, above, I built costs over 3 statues as `KL(Keep Lane)`, `CL(Change Left)` and `CR(Change Right)`. I put highest cost if we are in certain distance to the other cars, if not, I chose to use lane speed as a factor of cost. If we have totally no car on the lane the cost would be very low.
+
+*L252-L386* In this phase, I chose to use `spline`, not JMT type technics. Basically I used the technics introduces in the lecture video.
+
+[Youtube video](https://youtu.be/y7elDpvR9x4)
+
+---
+
 ### Simulator.
 You can download the Term3 Simulator which contains the Path Planning Project from the [releases tab (https://github.com/udacity/self-driving-car-sim/releases/tag/T3_v1.2).  
 

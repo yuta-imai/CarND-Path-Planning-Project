@@ -146,12 +146,13 @@ int main() {
 
               if ( car_lane == lane ) {
                 // Car in our lane.
-                
                 if(check_car_s > car_s) {
                   if(distance < GUARD_DISTANCE) {
                     car_ahead_in_guard_distance = true;
                   } else if ( distance < SAFETY_DISTANCE) {
                     car_ahead_in_safety_distance = true;
+
+                    //We want to pick speed of the closest car in the lane.
                     if(distance < distance_to_current_lane_closest_ahead) {
                       distance_to_current_lane_closest_ahead = distance;
                       speed_current_lane = check_speed/1.6*3600/1000;
@@ -165,6 +166,8 @@ int main() {
                   car_left_in_guard_distance = true;
                 } else if(check_car_s > car_s && distance < SAFETY_DISTANCE) {
                   car_left_in_safety_distance = true;
+
+                  //We want to pick speed of the closest car in the lane.
                   if(distance < distance_to_left_lane_closest_ahead) {
                     distance_to_left_lane_closest_ahead = distance;
                     speed_left_lane = check_speed/1.6*3600/1000;
@@ -176,6 +179,8 @@ int main() {
                   car_right_in_guard_distance = true;
                 } else if(check_car_s > car_s && distance < SAFETY_DISTANCE) {
                   car_right_in_safety_distance = true;
+
+                  //We want to pick speed of the closest car in the lane.
                   if(distance < distance_to_right_lane_closest_ahead) {
                     distance_to_right_lane_closest_ahead = distance;
                     speed_right_lane = check_speed/1.6*3600/1000;
